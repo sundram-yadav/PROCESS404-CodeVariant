@@ -2,10 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   Activity, ArrowDownToLine, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight,
-  CircleHelp, Clock3, Compass, FileUp, Flag, Home, Lightbulb, ListChecks, MessageSquareText,
+  BarChart3, ChevronDown, CircleHelp, Handshake, Users, Clock3, Compass, FileUp, Flag, Home, Lightbulb, ListChecks, MessageSquareText,
   NotebookPen, Plus, RotateCcw, Settings2, Trash2, X,
 } from 'lucide-react'
 import './App.css'
+import './theme.css'
+import OrbitBackground from './components/OrbitBackground'
+import Scene3D from './components/Scene3D'
+import StorageNotice from './components/StorageNotice'
+import { NotFoundPage, OpportunitiesPage, OrganizerPage, ConnectionsPage, ThanksPage } from './pages/Extras'
+import { loadExtras, PAGE_META, saveExtras, type Extras } from './lib/extras'
 import {
   createId, REFLECTION_QUESTIONS,
   type ActionTask, type EventRecord, type EventType, type FeedbackRecord, type FeedbackSuggestion,
@@ -17,7 +23,7 @@ import {
   clearWorkspace, exportWorkspace, loadWorkspace, normalizeImportedWorkspace, resetWorkspace, saveWorkspace,
 } from './lib/storage'
 
-type Page = 'overview' | 'events' | 'reflection' | 'feedback' | 'actions' | 'ideas' | 'timeline' | 'progress' | 'settings'
+type Page = 'opportunities' | 'connections' | 'organizer' | 'thanks' | 'notfound' | 'overview' | 'events' | 'reflection' | 'feedback' | 'actions' | 'ideas' | 'timeline' | 'progress' | 'settings'
 
 const NAV_ITEMS: Array<{ id: Page; label: string; icon: typeof Home }> = [
   { id: 'overview', label: 'Workspace', icon: Home },
@@ -28,8 +34,18 @@ const NAV_ITEMS: Array<{ id: Page; label: string; icon: typeof Home }> = [
   { id: 'ideas', label: 'Idea vault', icon: Lightbulb },
   { id: 'timeline', label: '30-day timeline', icon: Clock3 },
   { id: 'progress', label: 'Progress', icon: Activity },
+  { id: 'opportunities', label: 'Opportunities', icon: Handshake },
+  { id: 'connections', label: 'Connections', icon: Users },
+  { id: 'organizer', label: 'Organizer insights', icon: BarChart3 },
   { id: 'settings', label: 'Data & settings', icon: Settings2 },
 ]
+
+const KNOWN_PAGES: string[] = ['overview', 'events', 'reflection', 'feedback', 'actions', 'ideas', 'timeline', 'progress', 'opportunities', 'connections', 'organizer', 'settings', 'thanks']
+function pageFromHash(): Page {
+  const hash = window.location.hash.slice(1)
+  if (!hash || hash === 'workspace') return 'overview'
+  return KNOWN_PAGES.includes(hash) ? hash as Page : 'notfound'
+}
 
 const EVENT_TYPES: EventType[] = ['Hackathon', 'Competition', 'Conference', 'Workshop', 'Networking', 'Other']
 
@@ -77,7 +93,26 @@ const isOverdue = (date: string, status?: TaskStatus) => Boolean(date && date < 
 
 function App() {
   const [workspace, setWorkspace] = useState<WorkspaceState>(loadWorkspace)
-  const [page, setPage] = useState<Page>('overview')
+  const [page, setPageState] = useState<Page>(pageFromHash)
+  const [extras, setExtras] = useState<Extras>(loadExtras)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const setPage = (next: Page) => {
+    setPageState(next)
+    setMenuOpen(false)
+    try { window.history.replaceState(null, '', `#${next}`) } catch { /* sandboxed */ }
+    window.scrollTo(0, 0)
+  }
+  useEffect(() => {
+    const onHash = () => setPageState(pageFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  useEffect(() => { saveExtras(extras) }, [extras])
+  useEffect(() => {
+    const meta = PAGE_META[page]
+    document.title = `${meta.title} – ORIGANO`
+    document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description)
+  }, [page])
   const [notice, setNotice] = useState('')
   const [storageError, setStorageError] = useState('')
   const [eventForm, setEventForm] = useState(newEventForm())
@@ -418,6 +453,7 @@ function App() {
     }))
     logActivity('Reflection saved', `${Object.values(reflectionDraft).filter((answer) => answer.trim()).length} response(s) saved`, reflectionEventId)
     announce('Reflection saved.')
+    setPage('thanks')
   }
 
   function deleteReflection(reflection: ReflectionRecord) {
@@ -575,11 +611,12 @@ function App() {
   }
 
   function pageTitle() {
-    return NAV_ITEMS.find((item) => item.id === page)?.label ?? 'Workspace'
+    return NAV_ITEMS.find((item) => item.id === page)?.label ?? PAGE_META[page].title
   }
 
   return (
     <div className="app-shell">
+      <OrbitBackground />
       <aside className="sidebar">
         <a className="brand" href="#workspace" aria-label="ORIGANO workspace" onClick={(event) => { event.preventDefault(); setPage('overview') }}>
           <span className="brand-symbol">o</span>
@@ -629,24 +666,34 @@ function App() {
             <button className="icon-button" aria-label="Open data and settings" title="Data and settings" onClick={() => setPage('settings')} type="button"><Settings2 size={18} /></button>
           </div>
         </header>
-        <nav className="mobile-nav" aria-label="Mobile workspace navigation">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" aria-label={label} title={label} className={page === id ? 'active' : ''} onClick={() => setPage(id)}>
-              <Icon size={17} /><span>{label}</span>
-            </button>
-          ))}
-        </nav>
+        <div className="mobile-nav menu-nav" onKeyDown={(event) => { if (event.key === 'Escape') setMenuOpen(false) }}>
+          <button type="button" className="menu-toggle" aria-expanded={menuOpen} aria-controls="page-menu" onClick={() => setMenuOpen((open) => !open)}>{pageTitle()}<ChevronDown size={16} /></button>
+          {menuOpen && <div id="page-menu" className="menu-list">
+            {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}><Icon size={16} />{label}</button>
+            ))}
+          </div>}
+        </div>
 
         <div className="content-area">
+          <StorageNotice />
           {storageError && <div className="error-banner" role="alert">{storageError}</div>}
           {page === 'overview' && (
             <section className="page-content">
-              <div className="page-heading">
-                <div><p className="eyebrow">THE EVENT ENDS. YOUR NEXT CHAPTER BEGINS.</p><h1>Your next steps, <em>in focus.</em></h1>
-                  <p className="intro-copy">{currentEvent ? `${activeEventName} · ${formatDate(currentEvent.date)}` : 'Start with an event, then capture what matters while it is still fresh.'}</p>
+              <section className="hero" aria-labelledby="hero-title">
+                <div className="hero-copy">
+                  <p className="eyebrow">FOR PEOPLE WHO JUST FINISHED A HACKATHON, COMPETITION OR WORKSHOP</p>
+                  <h1 id="hero-title">Turn event feedback into a dated action plan.</h1>
+                  <p className="intro-copy">ORIGANO is a free tool that runs in your browser. Paste what judges and mentors told you and it suggests concrete tasks with deadlines. Feedback that is not planned is forgotten within days, and follow-through is where progress happens.{currentEvent ? ` Current event: ${activeEventName}.` : ''}</p>
+                  <div className="hero-actions">
+                    <button className="button button-cta" type="button" onClick={() => setPage('feedback')}>Paste your feedback <ArrowRight size={18} /></button>
+                    <button className="button button-secondary" type="button" onClick={() => { setPage('events'); setEditingEventId(''); setEventForm(newEventForm()) }}><Plus size={16} /> Create event</button>
+                  </div>
+                  <ol className="hero-steps"><li>Paste feedback</li><li>Review suggested actions</li><li>Track progress</li></ol>
+                  <p className="muted">No account. Your data stays in this browser. The event ends. Your next chapter begins.</p>
                 </div>
-                <button className="button button-primary" type="button" onClick={() => { setPage('events'); setEditingEventId(''); setEventForm(newEventForm()) }}><Plus size={16} /> Create event</button>
-              </div>
+                <Scene3D />
+              </section>
               <div className="workspace-grid">
                 <div className="overview-main">
                   <div className="metric-grid">
@@ -976,6 +1023,11 @@ function App() {
             </section>
           )}
 
+          {page === 'opportunities' && <OpportunitiesPage ideas={workspace.ideas} extras={extras} onChange={setExtras} />}
+          {page === 'connections' && <ConnectionsPage extras={extras} onChange={setExtras} />}
+          {page === 'organizer' && <OrganizerPage workspace={workspace} extras={extras} />}
+          {page === 'thanks' && <ThanksPage onGo={setPage} />}
+          {page === 'notfound' && <NotFoundPage onHome={() => setPage('overview')} />}
           {page === 'settings' && (
             <section className="page-content">
               <PageIntro eyebrow="YOUR DATA, YOUR DEVICE" title="Data & settings" detail="Your workspace stays in this browser. Export a copy whenever you want to move or back up your records." />
@@ -1011,6 +1063,7 @@ function App() {
           )}
         </div>
       </main>
+      {page !== 'feedback' && <div className="sticky-cta"><button className="button button-cta" type="button" onClick={() => setPage('feedback')}>Paste your feedback</button></div>}
       {notice && <div className="toast" role="status"><CheckCircle2 size={17} />{notice}<button aria-label="Dismiss notification" type="button" onClick={() => setNotice('')}><X size={15} /></button></div>}
     </div>
   )

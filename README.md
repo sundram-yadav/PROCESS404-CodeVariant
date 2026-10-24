@@ -2,76 +2,46 @@
 
 **The event ends. Your next chapter begins.**
 
-ORIGANO is an open-source, browser-based workspace for turning event reflections and feedback into practical next steps. Capture what you learned, organize judge or mentor feedback, decide which suggested actions to accept, and continue developing ideas after the event ends.
+ORIGANO is a free, browser-based post-event follow-through tool (PS 04, After the Event). Paste judge or mentor feedback, get rule-based suggested actions, accept or edit them into dated tasks, and track progress. Team PROCESS 404. Made by Sundram Yadav and Yugnsh Sethi.
 
-## What it does
+## Features
+- Events, guided reflection, feedback to action plan, action plan, idea vault, 30-day timeline, progress.
+- Sample Opportunities, Connections and Organizer insights (clearly labelled local demos).
+- JSON export and import, reset sample data, clear data, with confirmation dialogs.
+- Suggestions come from transparent keyword rules in the browser. No AI model is used.
+- Accessible dropdown navigation, per-page title and meta description, hash-based routing with a custom 404 page, thank-you page, sticky mobile call to action, storage notice, reduced-motion support.
 
-- Organizes events and keeps feedback, reflections, actions, ideas, and milestones connected to their context.
-- Converts feedback into transparent, deterministic action suggestions using local keyword rules. Suggestions can be edited, dismissed, or added to the action plan.
-- Tracks action status, priority, deadlines, overdue work, and completion.
-- Supports saved reflection drafts and converting a takeaway into an action.
-- Stores ideas with a clear development stage and next milestone.
-- Provides a 24-hour, 7-day, and 30-day follow-through timeline.
-- Calculates progress from the records in the current workspace.
-- Imports and exports a versioned JSON workspace.
+## Stack
+React 19, TypeScript, Vite, lucide-react. No backend, database, login or API keys.
 
-The included sample event demonstrates the complete flow. Use **Data & settings → Clear local data** for a blank workspace or **Restore sample workspace** to reload the demo.
-
-## Local development
-
-Requirements: Node.js 20.19+ or 22.12+, and npm.
-
-```sh
+## Run locally
+```
 npm install
-npm run dev
-```
-
-Vite prints the local development URL after the server starts.
-
-## Checks and production build
-
-```sh
+npm run dev      # development server
+npm run build    # typecheck + production build into dist/
+npm run preview  # serve the production build
 npm run lint
-npm run build
-npm run preview
 ```
-
-The production build is static and written to `dist/`.
 
 ## Deploy to Vercel
+1. Push this repository to GitHub.
+2. In Vercel choose Add New, Project and import the repository.
+3. Framework preset: Vite. Build command `npm run build`, output directory `dist`.
+4. Deploy. No environment variables are needed.
 
-1. Import the repository into Vercel, or install and use the Vercel CLI.
-2. Select **Vite** as the framework preset.
-3. Use `npm run build` as the build command and `dist` as the output directory.
-4. Deploy. No server functions, environment variables, API keys, or backend URLs are required.
+## Data and privacy
+Workspace data is stored in the browser's localStorage (`origano-workspace-v2`). Opportunity interest, connection requests and locally published ideas are stored under `origano-extras-v1` and are not part of the JSON export yet. Nothing is sent to a server. Clearing browser data erases the workspace, so export a backup first.
 
-The current app uses a single client-side workspace view rather than URL routes, so static hosting does not need a route-rewrite configuration.
+## Project layout
+- `src/App.tsx` application shell and main pages
+- `src/pages/Extras.tsx` opportunities, connections, organizer, thank-you and 404 pages
+- `src/components/` orbit background, CSS 3D hero scene, storage notice
+- `src/lib/` storage and validation, feedback rules, sample extras and page metadata
+- `src/model.ts` typed data model and sample workspace
+- `src/theme.css` design tokens and overrides (teal, coral and ivory palette)
 
-## Local storage and privacy
-
-ORIGANO has no account or server. Application data is saved in browser `localStorage` for this site origin. The deployed application is publicly accessible, but each visitor's workspace is private to that browser profile and is not shared with other people or devices.
-
-Clearing browser/site data removes the saved workspace. Export a JSON copy before moving to another device or clearing data. Import replaces the current local workspace after validating the ORIGANO schema version. Imported content is parsed as JSON and is never executed.
-
-Feedback categorization is rule-based and performed in the browser. It is not AI inference. Opportunity publishing, external messaging, collaboration delivery, cross-device synchronization, and organization-wide analytics are not provided.
-
-## Current limitations
-
-- There is no cloud sync, account system, shared database, or multi-user collaboration.
-- Sample actions and sample records are local demonstration data, not live messages or organization metrics.
-- Keyword rules can miss nuance; review and edit the suggestions before adding them to your action plan.
-- Browser storage has per-origin limits and is not a substitute for a backup.
-- There is no automated test suite configured yet. TypeScript compilation, production build, lint, and the main browser workflows should be checked before release.
-- The interactive journey artwork is a lightweight CSS 3D-style illustration; it does not use WebGL and is not required for the tool to function.
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development and review checklist.
-
-## Project
-
-- Problem statement: **PS 04 — After the Event**
-- Team: **PROCESS 404**
-- Made by Sundram Yadav and Yugnsh Sethi
-
-No license file is included because a license should only be added with authorization from the project owner.
+## Known limitations
+- Opportunities, connections and organizer data are local demos, not real people or organization-wide statistics.
+- No Kanban view yet. The 3D hero uses CSS 3D, not WebGL.
+- Not yet tested across browsers or with automated tests.
+- No license file. Add one only with the owners' approval.
