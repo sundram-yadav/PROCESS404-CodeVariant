@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Check, Globe, Heart, HeartOff, UserCheck, UserPlus, UserX, EyeOff } from 'lucide-react'
+import { ActionDock, DataCard, type ZoneDef } from '../components/Canvas'
 import type { IdeaRecord, WorkspaceState } from '../model'
 import { OPPORTUNITIES, PEOPLE, type Extras, type Opportunity } from '../lib/extras'
 
@@ -21,26 +23,36 @@ export function OpportunitiesPage({ ideas, extras, onChange }: Common & { ideas:
     if (interest[id]) delete interest[id]; else interest[id] = 'Interested'
     onChange({ ...extras, interest })
   }
+  const makeInterestZones = (): ZoneDef[] => [
+    { id: 'interest', label: 'Express interest', hint: 'Save to my interests', icon: <Heart size={16} />, accepts: ['opportunity'], tone: 'primary', onDrop: (p) => toggleInterest(p.id ?? '') },
+    { id: 'withdraw', label: 'Withdraw', hint: 'Remove my interest', icon: <HeartOff size={16} />, accepts: ['opportunity-interested'], tone: 'danger', onDrop: (p) => toggleInterest(p.id ?? '') },
+    { id: 'publish', label: 'Publish locally', hint: 'Add idea to this board', icon: <Globe size={16} />, accepts: ['idea-private'], tone: 'success', onDrop: (p) => togglePublish(p.id ?? '') },
+    { id: 'unpublish', label: 'Unpublish', hint: 'Take idea off the board', icon: <EyeOff size={16} />, accepts: ['idea-public'], onDrop: (p) => togglePublish(p.id ?? '') },
+  ]
   const togglePublish = (id: string) => onChange({ ...extras, published: extras.published.includes(id) ? extras.published.filter((x) => x !== id) : [...extras.published, id] })
   return (
     <section className="page-content">
-      <Intro eyebrow="SAMPLE DATA" title="Opportunities" detail="Sample listings bundled with the app. Interest is saved only in this browser and is not sent to anyone. Real cross-user publishing needs a shared backend." />
+      <ActionDock zones={makeInterestZones()} />
+      <Intro eyebrow="SAMPLE DATA" title="Opportunities" detail="Sample listings bundled with the app. Drag a listing into Express interest (interest stays in this browser and is not sent to anyone). Real cross-user publishing needs a shared backend." />
       <div className="panel filter-row">
         <label>Search<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Skill, title or topic" /></label>
         <label>Type<select value={type} onChange={(e) => setType(e.target.value)}><option value="all">All</option>{['Collaboration', 'Mentorship', 'Skill contribution', 'Project', 'Your idea'].map((t) => <option key={t}>{t}</option>)}</select></label>
       </div>
       {list.length === 0 && <p className="muted">No matches. Try a different search.</p>}
       {list.map((o) => (
-        <article className="panel extra-item" key={o.id}>
+        <DataCard className="panel extra-item extra-card" key={o.id} payload={{ kind: extras.interest[o.id] ? 'opportunity-interested' : 'opportunity', id: o.id, label: o.title }}>
           <p className="eyebrow">{o.type} · {o.domain}</p><h2>{o.title}</h2><p>{o.description}</p>
           <p className="muted">Skills: {o.skills.join(', ') || 'Not specified'} · {o.by}</p>
-          <button className="button button-secondary compact" type="button" onClick={() => toggleInterest(o.id)}>{extras.interest[o.id] ? 'Withdraw interest' : 'Express interest'}</button>
-          {extras.interest[o.id] && <span className="muted"> Status: {extras.interest[o.id]} (local only)</span>}
-        </article>
+          {extras.interest[o.id] ? <span className="status-chip"><Check size={12} /> {extras.interest[o.id]} · local only</span> : <span className="muted">Drag to Express interest</span>}
+        </DataCard>
       ))}
       <div className="panel extra-item"><h2>Publish your ideas to this local board</h2>
         {ideas.length === 0 ? <p className="muted">Add an idea in the Idea vault first.</p> : ideas.map((i) => (
-          <p key={i.id}><button className="button button-secondary compact" type="button" onClick={() => togglePublish(i.id)}>{extras.published.includes(i.id) ? 'Unpublish' : 'Publish locally'}</button> {i.title}</p>
+          <DataCard className="draft-card" key={i.id} payload={{ kind: extras.published.includes(i.id) ? 'idea-public' : 'idea-private', id: i.id, label: i.title }}>
+            <span className="draft-kicker">{extras.published.includes(i.id) ? 'Published locally' : 'Private idea'}</span>
+            <strong>{i.title}</strong>
+            <small>{extras.published.includes(i.id) ? 'Drag to Unpublish to take it down.' : 'Drag to Publish locally to list it above.'}</small>
+          </DataCard>
         ))}
       </div>
     </section>
@@ -52,21 +64,31 @@ export function ConnectionsPage({ extras, onChange }: Common) {
   const people = PEOPLE.filter((p) => `${p.name} ${p.college} ${p.interest} ${p.skills.join(' ')}`.toLowerCase().includes(query.toLowerCase()))
   const set = (key: string, value?: string) => { const interest = { ...extras.interest }; if (value) interest[key] = value; else delete interest[key]; onChange({ ...extras, interest }) }
   const sent = PEOPLE.filter((p) => extras.interest[`c:${p.id}`])
+  const connectZones: ZoneDef[] = [
+    { id: 'connect', label: 'Connect', hint: 'Send a local request', icon: <UserPlus size={16} />, accepts: ['person'], tone: 'primary', onDrop: (d) => set(`c:${d.id}`, 'Request sent') },
+    { id: 'cancel', label: 'Cancel request', hint: 'Withdraw request', icon: <UserX size={16} />, accepts: ['person-sent'], tone: 'danger', onDrop: (d) => set(`c:${d.id}`) },
+    { id: 'accept', label: 'Accept', hint: 'Accept received request', icon: <UserCheck size={16} />, accepts: ['request'], tone: 'success', onDrop: () => set('r:p3', 'Accepted') },
+    { id: 'decline', label: 'Decline', hint: 'Decline received request', icon: <UserX size={16} />, accepts: ['request'], onDrop: () => set('r:p3', 'Declined') },
+  ]
   return (
     <section className="page-content">
-      <Intro eyebrow="SAMPLE DATA" title="Connections" detail="Fictional sample profiles. Requests are saved only in this browser and are not delivered to anyone." />
+      <ActionDock zones={connectZones} />
+      <Intro eyebrow="SAMPLE DATA" title="Connections" detail="Fictional sample profiles. Drag a profile into Connect. Requests are saved only in this browser and are not delivered to anyone." />
       <div className="panel filter-row"><label>Search by name, college, skill or interest<input value={query} onChange={(e) => setQuery(e.target.value)} /></label></div>
       {people.length === 0 && <p className="muted">No matches.</p>}
       {people.map((p) => (
-        <article className="panel extra-item" key={p.id}>
+        <DataCard className="panel extra-item extra-card" key={p.id} payload={{ kind: extras.interest[`c:${p.id}`] ? 'person-sent' : 'person', id: p.id, label: p.name }}>
           <h2>{p.name}</h2><p className="muted">{p.college} · {p.interest}</p><p>Goal: {p.goal}</p><p className="muted">Skills: {p.skills.join(', ')}</p>
-          <button className="button button-secondary compact" type="button" onClick={() => set(`c:${p.id}`, extras.interest[`c:${p.id}`] ? undefined : 'Request sent')}>{extras.interest[`c:${p.id}`] ? 'Cancel request' : 'Connect'}</button>
-        </article>
+          {extras.interest[`c:${p.id}`] ? <span className="status-chip"><Check size={12} /> {extras.interest[`c:${p.id}`]} · local</span> : <span className="muted">Drag to Connect</span>}
+        </DataCard>
       ))}
       <div className="panel extra-item"><h2>Sent requests</h2>{sent.length ? sent.map((p) => <p key={p.id}>{p.name}: {extras.interest[`c:${p.id}`]} (local)</p>) : <p className="muted">None yet.</p>}</div>
-      <div className="panel extra-item"><h2>Received (demo)</h2><p>Kabir (sample) would like to collaborate on a campus dashboard. <span className="muted">{extras.interest['r:p3'] ?? 'Pending'}</span></p>
-        <button className="button button-secondary compact" type="button" onClick={() => set('r:p3', 'Accepted')}>Accept</button>{' '}
-        <button className="button button-secondary compact" type="button" onClick={() => set('r:p3', 'Declined')}>Decline</button></div>
+      <div className="panel extra-item"><h2>Received (demo)</h2>
+        <DataCard className="draft-card" payload={{ kind: 'request', id: 'p3', label: 'Request from Kabir' }}>
+          <span className="draft-kicker">{extras.interest['r:p3'] ?? 'Pending'}</span>
+          <strong>Kabir (sample) would like to collaborate on a campus dashboard.</strong>
+          <small>Drag into Accept or Decline.</small>
+        </DataCard></div>
     </section>
   )
 }

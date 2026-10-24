@@ -1,0 +1,137 @@
+/* ==========================================================================
+   ORIGANO · Canvas Protocol (drag cards into action zones) + logo + footer
+   Loaded after neo.css.
+   ========================================================================== */
+
+/* ---------- Brand logo (public/icons.svg, emblem only) ---------- */
+button.brand, button.mobile-brand { border: 0; background: none; cursor: pointer; font: inherit; text-align: left; padding: 0; }
+button.brand { display: inline-flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 800; letter-spacing: .16em; }
+.brand-logo {
+  display: block; flex: 0 0 auto; width: 42px; height: 42px;
+  background: url('/icons.svg') no-repeat -5px center / auto 100%;
+  filter: brightness(0) invert(1) sepia(.35) saturate(1.6) hue-rotate(-8deg);
+  transition: transform .2s ease;
+}
+.brand:hover .brand-logo, .mobile-brand:hover .brand-logo { transform: scale(1.08) rotate(-4deg); }
+.brand:focus-visible, .mobile-brand:focus-visible { outline: 2px solid var(--saffron); outline-offset: 4px; border-radius: 10px; }
+.brand { margin-bottom: 26px; }
+.brand-logo.on-light { filter: none; width: 30px; height: 30px; }
+@media (max-width: 900px) { button.mobile-brand { display: flex; align-items: center; gap: 8px; color: #14403f; font-size: 11px; font-weight: 800; letter-spacing: .12em; } }
+
+/* ---------- Compact, formal footer ---------- */
+.app-footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 28px;
+  margin-top: 40px; padding: 16px 0 6px; border-top: 1px solid rgba(94, 82, 70, .22);
+  color: var(--muted); font-size: 12px; line-height: 1.5;
+}
+.footer-nav { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+.footer-nav button { padding: 2px 0; border: 0; background: none; color: var(--muted); font-size: 12px; font-weight: 500; }
+.footer-nav button:hover { color: var(--burnt); text-decoration: underline; }
+.footer-meta { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+
+/* ---------- Data cards ---------- */
+.data-card.data-card { position: relative; cursor: grab; padding-left: 34px; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+.data-card:hover:not(.is-locked) { transform: translateY(-1px); }
+.data-card:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+.data-card.is-lifted { opacity: .4; transform: scale(.985); }
+.data-card.is-locked { cursor: not-allowed; }
+.dnd-grip {
+  position: absolute; left: 6px; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 24px; height: 36px;
+  border-radius: 8px; color: var(--burnt); opacity: .55; touch-action: none; cursor: grab;
+}
+.data-card:hover > .dnd-grip, .data-card:focus-visible > .dnd-grip { opacity: 1; }
+body.canvas-dragging, body.canvas-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+.drag-ghost {
+  position: fixed; left: 0; top: 0; z-index: 400; display: inline-flex; align-items: center; gap: 6px; max-width: 260px;
+  padding: 10px 16px 10px 10px; border-radius: 14px; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 13px; font-weight: 700; color: #2b1606; background: linear-gradient(145deg, #ffbf47, #f08a0c);
+  box-shadow: 10px 12px 24px rgba(120, 70, 10, .35), -4px -4px 10px rgba(255, 250, 242, .6); rotate: -2deg;
+}
+
+/* Draft cards: a live summary of the form you are filling in */
+.draft-card.draft-card {
+  display: grid; gap: 4px; margin-top: 16px; padding: 14px 16px 14px 38px; border-radius: 18px; background: var(--neo-bg);
+  border: 2px dashed rgba(184, 84, 10, .45); box-shadow: var(--neo-raised-sm);
+}
+.draft-card .draft-kicker { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--burnt); }
+.draft-card strong { font-size: 15px; color: #14403f; overflow-wrap: anywhere; }
+.draft-card small { color: var(--muted); font-size: 12px; }
+.draft-card.is-locked { border-color: rgba(94, 82, 70, .3); box-shadow: var(--neo-pressed-sm); }
+.draft-card.is-locked strong { color: var(--muted); }
+.card-tip { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.card-lane { display: grid; gap: 10px; }
+
+/* Plain-card layouts for things that used to be buttons-on-cards */
+.data-card.event-card, .data-card.saved-feedback-card, .data-card.idea-card, .data-card.milestone-card,
+.data-card.reflection-record, .data-card.suggestion-card, .data-card.saved-suggestion, .data-card.extra-card { padding-left: 38px; }
+.data-card.task-row { grid-template-columns: minmax(0, 1fr) auto; padding: 13px 14px 13px 36px; }
+.task-state { width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; background: #c9b9a5; display: inline-block; margin-right: 8px; }
+.task-state.in_progress { background: var(--saffron); }
+.task-state.done { background: var(--teal); }
+.task-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); }
+.task-complete .task-title { color: #8b8070; text-decoration: line-through; }
+.task-row .task-row-content > p { font-size: 12px; }
+.task-row .task-meta { font-size: 11px; }
+.status-chip { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--burnt); box-shadow: var(--neo-pressed-sm); }
+.milestone-state { display: inline-block; margin-bottom: 6px; }
+.milestone-card .milestone-title-row { display: block; }
+.milestone-card .milestone-title-row input { width: 100%; }
+
+/* ---------- Action dock ---------- */
+.action-dock {
+  position: fixed; z-index: 60; left: var(--sb-w); right: 0; bottom: 0;
+  padding: 8px 18px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(245, 237, 227, 0), rgba(245, 237, 227, .92) 22%, var(--neo-bg) 100%);
+  pointer-events: none;
+}
+.dock-label {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 6px; font-size: 11px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--burnt);
+}
+.action-dock.is-active .dock-label { animation: dock-pulse 1s ease-in-out infinite; }
+.dock-zones { display: flex; gap: 10px; justify-content: center; overflow-x: auto; padding: 6px 4px 8px; pointer-events: auto; scrollbar-width: thin; }
+.action-zone {
+  position: relative; flex: 1 1 0; min-width: 96px; max-width: 190px; display: grid; justify-items: center; align-content: center; gap: 2px;
+  padding: 10px 8px; min-height: 78px; border-radius: 18px; text-align: center; color: var(--ink); background: var(--neo-bg);
+  border: 2px dashed rgba(94, 82, 70, .35); box-shadow: var(--neo-raised-sm); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, opacity .15s ease, background .15s ease;
+}
+.action-zone strong { font-size: 12.5px; line-height: 1.2; }
+.action-zone small { font-size: 10.5px; line-height: 1.25; color: var(--muted); }
+.zone-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--burnt); box-shadow: var(--neo-pressed-sm); }
+.action-zone.tone-primary .zone-icon { color: #fff; background: linear-gradient(145deg, #f58a12, #cf5a08); box-shadow: none; }
+.action-zone.tone-success .zone-icon { color: #fff; background: linear-gradient(145deg, #12a3a1, #0a6f6e); box-shadow: none; }
+.action-zone.tone-danger .zone-icon { color: #fff; background: linear-gradient(145deg, #f26a55, #b83222); box-shadow: none; }
+.action-zone.is-armed { border-style: solid; border-color: var(--orange); animation: zone-glow 1.1s ease-in-out infinite; }
+.action-zone.tone-danger.is-armed { border-color: #c4392a; }
+.action-zone.is-dim { opacity: .38; }
+.action-zone.is-over { transform: translateY(-8px) scale(1.07); border-color: var(--orange); background: #fff2dc; box-shadow: 0 14px 28px rgba(232, 115, 12, .38), 0 0 0 4px rgba(255, 159, 28, .35); animation: none; }
+.action-zone.tone-danger.is-over { background: #ffe4df; box-shadow: 0 14px 28px rgba(196, 57, 42, .34), 0 0 0 4px rgba(244, 93, 72, .32); }
+.action-zone.is-flash { animation: zone-flash .7s ease; }
+.action-zone.is-rejected { animation: zone-shake .4s ease; }
+.drop-here {
+  display: grid; place-items: center; gap: 4px; margin-top: 12px; padding: 18px; border-radius: 18px; text-align: center;
+  border: 2px dashed rgba(94, 82, 70, .3); color: var(--muted); font-size: 13px;
+}
+.content-area { padding-bottom: 150px; }
+body.has-dock .toast { bottom: 128px; }
+@keyframes zone-glow { 0%, 100% { box-shadow: var(--neo-raised-sm), 0 0 0 0 rgba(255, 159, 28, .0); } 50% { box-shadow: var(--neo-raised-sm), 0 0 0 5px rgba(255, 159, 28, .35); } }
+@keyframes zone-flash { 0% { transform: scale(1); } 35% { transform: scale(1.14); background: #d8f3ef; } 100% { transform: scale(1); } }
+@keyframes zone-shake { 0%, 100% { translate: 0; } 25% { translate: -6px; } 75% { translate: 6px; } }
+@keyframes dock-pulse { 50% { opacity: .55; } }
+
+/* The old fixed "Paste your feedback" bar would sit under the dock; the hero CTA already links there. */
+.sticky-cta { display: none !important; }
+
+@media (max-width: 900px) {
+  .action-dock { left: 0; padding-inline: 8px; }
+  .dock-zones { justify-content: flex-start; }
+  .action-zone { flex: 0 0 104px; min-height: 72px; }
+  .action-zone small { display: none; }
+  .content-area { padding-bottom: 150px !important; }
+  .data-card.data-card { padding-left: 38px; }
+  .app-footer { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-zone, .data-card, .brand-logo { transition: none !important; animation: none !important; }
+  .action-zone.is-armed, .action-dock.is-active .dock-label { animation: none !important; }
+}
