@@ -2,13 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   Activity, ArrowDownToLine, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight,
-  BarChart3, ChevronDown, CircleHelp, Handshake, Users, Clock3, Compass, FileUp, Flag, Home, Lightbulb, ListChecks, MessageSquareText,
+  BarChart3, ChevronDown, CircleHelp, Lock, Handshake, Users, Clock3, Compass, FileUp, Flag, Home, Lightbulb, ListChecks, MessageSquareText,
   NotebookPen, Plus, RotateCcw, Settings2, Trash2, X,
+  Sprout,
 } from 'lucide-react'
 import './App.css'
 import './theme.css'
+import './neo.css'
 import OrbitBackground from './components/OrbitBackground'
-import Scene3D from './components/Scene3D'
+import CommitteeScene from './components/CommitteeScene'
+import SylvaIntro from './components/SylvaIntro'
 import StorageNotice from './components/StorageNotice'
 import { NotFoundPage, OpportunitiesPage, OrganizerPage, ConnectionsPage, ThanksPage } from './pages/Extras'
 import { loadExtras, PAGE_META, saveExtras, type Extras } from './lib/extras'
@@ -46,6 +49,8 @@ function pageFromHash(): Page {
   if (!hash || hash === 'workspace') return 'overview'
   return KNOWN_PAGES.includes(hash) ? hash as Page : 'notfound'
 }
+
+const CURRENT_YEAR = new Date().getFullYear()
 
 const EVENT_TYPES: EventType[] = ['Hackathon', 'Competition', 'Conference', 'Workshop', 'Networking', 'Other']
 
@@ -96,6 +101,12 @@ function App() {
   const [page, setPageState] = useState<Page>(pageFromHash)
   const [extras, setExtras] = useState<Extras>(loadExtras)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [introOpen, setIntroOpen] = useState(() => { try { return sessionStorage.getItem('origano-intro-seen') !== '1' } catch { return true } })
+  const closeIntro = (target?: string) => {
+    try { sessionStorage.setItem('origano-intro-seen', '1') } catch { /* ignore */ }
+    setIntroOpen(false)
+    if (target && NAV_ITEMS.some((item) => item.id === target)) { setPage(target as Page); window.scrollTo({ top: 0 }) }
+  }
   const setPage = (next: Page) => {
     setPageState(next)
     setMenuOpen(false)
@@ -616,7 +627,8 @@ function App() {
 
   return (
     <div className="app-shell">
-      <OrbitBackground />
+      {introOpen && <SylvaIntro onEnter={closeIntro} />}
+      {!introOpen && <OrbitBackground />}
       <aside className="sidebar">
         <a className="brand" href="#workspace" aria-label="ORIGANO workspace" onClick={(event) => { event.preventDefault(); setPage('overview') }}>
           <span className="brand-symbol">o</span>
@@ -653,6 +665,7 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           <p>Private by default.<br />Stored in this browser.</p>
+          <button className="quiet-button" type="button" onClick={() => setIntroOpen(true)}><Sprout size={15} /> Replay welcome</button>
           <button className="quiet-button" type="button" onClick={() => setPage('settings')}><CircleHelp size={15} /> Data & privacy</button>
         </div>
       </aside>
@@ -660,7 +673,7 @@ function App() {
       <main className="main-area" id="workspace">
         <header className="topbar">
           <div className="mobile-brand"><span className="brand-symbol">o</span> ORIGANO</div>
-          <div className="breadcrumb"><span>Workspace</span><ChevronRight size={14} /><strong>{pageTitle()}</strong></div>
+          <div className="breadcrumb"><span>ORIGANO</span><ChevronRight size={14} /><strong>{pageTitle()}</strong></div>
           <div className="topbar-right">
             <span className="local-indicator"><i /> Saved in this browser</span>
             <button className="icon-button" aria-label="Open data and settings" title="Data and settings" onClick={() => setPage('settings')} type="button"><Settings2 size={18} /></button>
@@ -675,7 +688,7 @@ function App() {
           </div>}
         </div>
 
-        <div className="content-area">
+        <div className="content-area" data-page={page}>
           <StorageNotice />
           {storageError && <div className="error-banner" role="alert">{storageError}</div>}
           {page === 'overview' && (
@@ -692,7 +705,7 @@ function App() {
                   <ol className="hero-steps"><li>Paste feedback</li><li>Review suggested actions</li><li>Track progress</li></ol>
                   <p className="muted">No account. Your data stays in this browser. The event ends. Your next chapter begins.</p>
                 </div>
-                <Scene3D />
+                <CommitteeScene />
               </section>
               <div className="workspace-grid">
                 <div className="overview-main">
@@ -744,7 +757,6 @@ function App() {
                   </div>
                 </aside>
               </div>
-              <Footer />
             </section>
           )}
 
@@ -792,7 +804,6 @@ function App() {
                   </div>
                 </div>
               </div>
-              <Footer />
             </section>
           )}
 
@@ -856,7 +867,6 @@ function App() {
                   {!visibleFeedback.length && <EmptyState title={workspace.feedback.length ? 'No feedback matches' : 'Nothing captured yet'} detail={workspace.feedback.length ? 'Try another search.' : 'Add feedback above to begin the workflow.'} />}
                 </div>
               </div>
-              <Footer />
             </section>
           )}
 
@@ -894,7 +904,6 @@ function App() {
                   </div>
                 </div>
               </div>
-              <Footer />
             </section>
           )}
 
@@ -923,7 +932,6 @@ function App() {
                   {Object.entries(reflection.answers).filter(([, answer]) => answer.trim()).map(([question, answer]) => <div className="reflection-answer-item" key={question}><strong>{question}</strong><p>{answer}</p></div>)}
                 </article>) : <EmptyState title="No reflections saved" detail="Your reflection drafts and completed responses will appear here." />}
               </div>
-              <Footer />
             </section>
           )}
 
@@ -963,7 +971,6 @@ function App() {
                   </div>
                 </div>
               </div>
-              <Footer />
             </section>
           )}
 
@@ -985,7 +992,6 @@ function App() {
                 </section>)}
               </div>
               <div className="panel custom-milestones"><PanelTitle eyebrow="YOUR OWN PACE" title="Milestones from your action plan" /><p className="muted">Milestones can be edited directly above. Convert any one into an action to track it alongside your follow-through tasks.</p><div className="plain-activity">{workspace.milestones.filter((item) => item.completedAt).map((item) => <span key={item.id}><CheckCircle2 size={15} /> {item.title} · completed {formatDate(item.completedAt?.slice(0, 10) ?? '')}</span>)}</div></div>
-              <Footer />
             </section>
           )}
 
@@ -1019,7 +1025,6 @@ function App() {
               </div>
               <div className="panel progress-activity"><PanelTitle eyebrow="THE WORK BEHIND THE NUMBERS" title="Activity history" />
                 {workspace.activity.length ? <div className="activity-list">{workspace.activity.map((item) => <div className="activity-item" key={item.id}><span className="activity-dot" /><div><strong>{item.title}</strong><p>{item.detail}{item.eventId ? ` · ${eventName(item.eventId)}` : ''}</p><small>{formatTimestamp(item.createdAt)}</small></div></div>)}</div> : <EmptyState title="A fresh start" detail="Updates to events, reflections, feedback, actions, and ideas will build your activity history." />}</div>
-              <Footer />
             </section>
           )}
 
@@ -1058,9 +1063,9 @@ function App() {
                   <div className="form-actions"><button className="button button-secondary" type="button" onClick={loadSamples}><RotateCcw size={15} /> Restore sample workspace</button><button className="button button-danger" type="button" onClick={clearData}><Trash2 size={15} /> Clear local data</button></div>
                 </div>
               </div>
-              <Footer />
             </section>
           )}
+          <Footer onNavigate={(next) => { setPage(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
         </div>
       </main>
       {page !== 'feedback' && <div className="sticky-cta"><button className="button button-cta" type="button" onClick={() => setPage('feedback')}>Paste your feedback</button></div>}
@@ -1143,8 +1148,37 @@ function JourneyVisual({ onSelect }: { onSelect: (page: Page) => void }) {
   </div>
 }
 
-function Footer() {
-  return <footer className="app-footer"><span>ORIGANO · A private, local-first workspace</span><span>Made by Sundram Yadav and Yugnsh Sethi</span></footer>
+function Footer({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  const links = NAV_ITEMS.filter((item) => ['events', 'feedback', 'actions', 'timeline', 'progress', 'settings'].includes(item.id))
+  return (
+    <footer className="app-footer">
+      <div className="footer-card">
+        <div className="footer-brand">
+          <span className="footer-logo" aria-hidden="true">o</span>
+          <div>
+            <strong>ORIGANO</strong>
+            <p>After the event, the work begins. Turn judge feedback, reflections and ideas into a dated action plan.</p>
+          </div>
+          <span className="footer-badge"><Lock size={13} aria-hidden="true" /> Private · stays in this browser</span>
+        </div>
+        <nav className="footer-links" aria-label="Footer">
+          <h3>Explore</h3>
+          {links.map(({ id, label }) => <button key={id} type="button" onClick={() => onNavigate(id)}>{label}</button>)}
+        </nav>
+        <div className="footer-credit">
+          <h3>Made by</h3>
+          <ul>
+            <li><span className="fa fa-s">SY</span><div><strong>Sundram Yadav</strong><small>Design &amp; build</small></div></li>
+            <li><span className="fa fa-y">YS</span><div><strong>Yugnsh Sethi</strong><small>Design &amp; build</small></div></li>
+          </ul>
+        </div>
+      </div>
+      <p className="footer-base">
+        <span>© {CURRENT_YEAR} ORIGANO · A private, local-first workspace</span>
+        <span>No account · no cookies · no tracking</span>
+      </p>
+    </footer>
+  )
 }
 
 export default App

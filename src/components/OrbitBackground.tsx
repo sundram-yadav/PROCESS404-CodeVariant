@@ -17,11 +17,11 @@ export default function OrbitBackground() {
       let prev: [number, number] | null = null
       for (const o of ORBITS) {
         const R = o.r * m
-        ctx.strokeStyle = 'rgba(7,128,128,.16)'; ctx.lineWidth = 1.5
+        ctx.strokeStyle = 'rgba(232,115,12,.20)'; ctx.lineWidth = 1.5
         ctx.beginPath(); ctx.ellipse(0, 0, R, R * 0.42, 0, 0, 7); ctx.stroke()
         for (let k = 0; k < o.n; k++) {
           const a = (k / o.n) * 6.283 + t * o.s, x = Math.cos(a) * R, y = Math.sin(a) * R * 0.42
-          ctx.fillStyle = k % 3 ? 'rgba(7,128,128,.5)' : 'rgba(244,93,72,.6)'
+          ctx.fillStyle = k % 3 ? 'rgba(10,147,147,.55)' : 'rgba(255,159,28,.75)'
           ctx.beginPath(); ctx.arc(x, y, k % 3 ? 3 : 5, 0, 7); ctx.fill()
           if (k === 0) {
             if (prev) { ctx.strokeStyle = 'rgba(35,35,35,.12)'; ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.lineTo(x, y); ctx.stroke() }
