@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { GripVertical, MoveDown } from 'lucide-react'
 
@@ -294,10 +295,11 @@ function ActionZone({ zone }: { zone: ZoneDef }) {
 export function ActionDock({ zones, title = 'Action zones' }: { zones: ZoneDef[]; title?: string }) {
   const { dragging } = useCanvas()
   if (!zones.length) return null
-  return (
+  return createPortal(
     <section className={`action-dock ${dragging ? 'is-active' : ''}`} aria-label={title}>
       <p className="dock-label"><MoveDown size={13} aria-hidden="true" /> {dragging ? `Drop “${dragging.label}” on a glowing zone` : 'Drag a card into a zone'}</p>
       <div className="dock-zones">{zones.map((zone) => <ActionZone key={zone.id} zone={zone} />)}</div>
-    </section>
+    </section>,
+    document.body,
   )
 }

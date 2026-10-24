@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
-  Activity, ArrowDownToLine, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight,
-  BarChart3, ChevronDown, CircleHelp, Handshake, Users, Clock3, Compass, Flag, Hammer, Home, Lightbulb, ListChecks, ListPlus, MessageSquareText,
+  Activity, ArrowDownToLine, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronRight,
+  BarChart3, ChevronDown, Handshake, Users, Clock3, Compass, Flag, Hammer, Home, Lightbulb, ListChecks, ListPlus, MessageSquareText,
   NotebookPen, Pause, Pencil, Plus, RotateCcw, Save, Settings2, Star, Trash2, Trophy, Upload, X,
-  Sprout, Circle, Loader, Wand2,
+  Sprout, Circle, Loader, Wand2, Moon, Sun,
 } from 'lucide-react'
 import './App.css'
 import './theme.css'
 import './neo.css'
-import './canvas.css'
+import './canvas-protocol.css'
 import { ActionDock, CanvasProvider, DataCard, type DragPayload, type ZoneDef } from './components/Canvas'
 import OrbitBackground from './components/OrbitBackground'
 import CommitteeScene from './components/CommitteeScene'
 import SylvaIntro from './components/SylvaIntro'
 import StorageNotice from './components/StorageNotice'
+import GlobalSearch, { type SearchHit } from './components/GlobalSearch'
 import { NotFoundPage, OpportunitiesPage, OrganizerPage, ConnectionsPage, ThanksPage } from './pages/Extras'
 import { loadExtras, PAGE_META, saveExtras, type Extras } from './lib/extras'
 import {
@@ -89,6 +90,13 @@ const newIdeaForm = (eventId = ''): Omit<IdeaRecord, 'id' | 'createdAt' | 'updat
   status: 'raw',
 })
 
+const addDays = (base: string, days: number) => {
+  const date = new Date(`${(base || new Date().toISOString().slice(0, 10)).slice(0, 10)}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+const WINDOW_DAYS = { '24h': 1, '7d': 7, '30d': 30 } as const
+const newMilestoneForm = () => ({ title: '', description: '', window: '7d' as TimelineMilestone['window'], dueDate: '' })
 const newFeedbackForm = () => ({ id: '', eventId: '', source: 'Judge', text: '' })
 const formatDate = (value: string) => value
   ? new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value.slice(0, 10)}T12:00:00`))
@@ -103,6 +111,17 @@ function App() {
   const [page, setPageState] = useState<Page>(pageFromHash)
   const [extras, setExtras] = useState<Extras>(loadExtras)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('origano-theme')
+      if (saved === 'light' || saved === 'dark') return saved
+    } catch { /* ignore */ }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try { localStorage.setItem('origano-theme', theme) } catch { /* ignore */ }
+  }, [theme])
   const [introOpen, setIntroOpen] = useState(() => { try { return sessionStorage.getItem('origano-intro-seen') !== '1' } catch { return true } })
   const closeIntro = (target?: string) => {
     try { sessionStorage.setItem('origano-intro-seen', '1') } catch { /* ignore */ }
@@ -144,7 +163,7 @@ function App() {
   const [editingIdeaId, setEditingIdeaId] = useState('')
   const [ideaQuery, setIdeaQuery] = useState('')
   const [ideaStatusFilter, setIdeaStatusFilter] = useState('all')
-  const [reflectionQuestion, setReflectionQuestion] = useState(0)
+  const [milestoneForm, setMilestoneForm] = useState(newMilestoneForm)
   const [reflectionEventId, setReflectionEventId] = useState(() => workspace.currentEventId)
   const [reflectionDraft, setReflectionDraft] = useState<Record<string, string>>(
     () => workspace.reflections.find((reflection) => reflection.eventId === workspace.currentEventId)?.answers ?? {},
@@ -608,6 +627,42 @@ function App() {
     announce('Browser workspace cleared.')
   }
 
+  function createMilestone() {
+    if (!milestoneForm.title.trim()) return
+    if (!selectedEventId) { announce('Create an event first, then add milestones to it.'); return }
+    const eventDate = workspace.events.find((item) => item.id === selectedEventId)?.date ?? ''
+    const milestone: TimelineMilestone = {
+      id: createId('milestone'), eventId: selectedEventId, title: milestoneForm.title.trim(), description: milestoneForm.description.trim(),
+      window: milestoneForm.window, dueDate: milestoneForm.dueDate || addDays(eventDate, WINDOW_DAYS[milestoneForm.window]),
+    }
+    setWorkspace((state) => ({ ...state, milestones: [...state.milestones, milestone] }))
+    setMilestoneForm(newMilestoneForm())
+    logActivity('Milestone added', milestone.title, milestone.eventId)
+    announce('Milestone added to your timeline.')
+  }
+
+  function createStarterPlan() {
+    if (!selectedEventId) { announce('Create an event first.'); return }
+    const eventDate = workspace.events.find((item) => item.id === selectedEventId)?.date ?? ''
+    const starter: Array<[TimelineMilestone['window'], string, string]> = [
+      ['24h', 'Capture the important takeaways', 'Write down what you learned and the feedback you heard while it is still fresh.'],
+      ['7d', 'Follow up on the strongest feedback', 'Turn the most important critique into one small, testable improvement.'],
+      ['30d', 'Review the next project milestone', 'Check what changed, what you learned, and what deserves attention next.'],
+    ]
+    const items: TimelineMilestone[] = starter.map(([window, title, description]) => ({
+      id: createId('milestone'), eventId: selectedEventId, title, description, window, dueDate: addDays(eventDate, WINDOW_DAYS[window]),
+    }))
+    setWorkspace((state) => ({ ...state, milestones: [...state.milestones, ...items] }))
+    logActivity('30-day plan created', eventName(selectedEventId), selectedEventId)
+    announce('Your 24-hour, 7-day and 30-day milestones are ready.')
+  }
+
+  function deleteMilestone(milestone: TimelineMilestone) {
+    setWorkspace((state) => ({ ...state, milestones: state.milestones.filter((item) => item.id !== milestone.id) }))
+    logActivity('Milestone removed', milestone.title, milestone.eventId)
+    announce('Milestone removed.')
+  }
+
   // ---------- THE CANVAS PROTOCOL: what each Action Zone does ----------
   const dataOf = <T,>(payload: DragPayload) => payload.data as T
 
@@ -617,6 +672,7 @@ function App() {
       case 'draft-feedback': case 'feedback-bundle': setFeedbackForm(newFeedbackForm()); setFeedbackSuggestions([]); break
       case 'draft-task': setEditingTaskId(''); setTaskForm(newTaskForm()); break
       case 'draft-idea': setEditingIdeaId(''); setIdeaForm(newIdeaForm()); break
+      case 'draft-milestone': setMilestoneForm(newMilestoneForm()); break
     }
     announce('Draft discarded.')
   }
@@ -630,6 +686,7 @@ function App() {
       case 'idea': { const item = workspace.ideas.find((x) => x.id === id); if (item) deleteIdea(item); break }
       case 'reflection': { const item = workspace.reflections.find((x) => x.id === id); if (item) deleteReflection(item); break }
       case 'suggestion': updateSuggestion(dataOf<{ feedbackId: string }>(payload).feedbackId, id, { dismissed: true }); announce('Suggestion dismissed.'); break
+      case 'milestone': { const item = workspace.milestones.find((x) => x.id === id); if (item) deleteMilestone(item); break }
       case 'suggestion-preview': setFeedbackSuggestions((items) => items.filter((item) => item.id !== id)); break
       default: discardDraft(payload)
     }
@@ -691,7 +748,7 @@ function App() {
       ]
       case 'events': return [
         zoneSave(['draft-event'], 'Create / update event', () => createEvent()),
-        { id: 'current', label: 'Make current', hint: 'Set as active event', icon: <Star size={16} />, accepts: ['event'], tone: 'success', onDrop: (payload) => { setWorkspace((state) => ({ ...state, currentEventId: payload.id ?? '' })); announce('Current event changed.') } },
+        { id: 'current', label: 'Make current', hint: 'Set as active event', icon: <Star size={16} />, accepts: ['event'], tone: 'success', onDrop: (payload: DragPayload) => { setWorkspace((state) => ({ ...state, currentEventId: payload.id ?? '' })); announce('Current event changed.') } },
         zoneEdit(['event']),
         zoneRemove(['event', 'draft-event']),
       ]
@@ -729,10 +786,12 @@ function App() {
         { id: 'ms-done', label: 'Done', hint: 'Mark complete', icon: <Check size={16} />, accepts: ['milestone'], tone: 'success', onDrop: setMilestone(true) },
         { id: 'ms-open', label: 'Reopen', hint: 'Mark not done', icon: <RotateCcw size={16} />, accepts: ['milestone'], onDrop: setMilestone(false) },
         { id: 'plan', label: 'Add to plan', hint: 'Milestone → task', icon: <ListPlus size={16} />, accepts: ['milestone'], tone: 'primary', onDrop: dropPlan },
+        zoneSave(['draft-milestone', 'starter-plan'], 'Create milestone(s)', (payload) => payload.kind === 'starter-plan' ? createStarterPlan() : createMilestone()),
+        zoneRemove(['milestone', 'draft-milestone'], 'Delete milestone'),
       ]
       case 'settings': return [
         { id: 'export', label: 'Export', hint: 'Download JSON backup', icon: <ArrowDownToLine size={16} />, accepts: ['workspace'], tone: 'primary', onDrop: () => exportWorkspace(workspace) },
-        { id: 'import', label: 'Import', hint: 'Drop a .json file here', icon: <Upload size={16} />, accepts: ['import-card'], onDrop: () => importRef.current?.click(), onFiles: (files) => { const file = files.find((item) => /\.json$/i.test(item.name)) ?? files[0]; if (file) importFile(file) } },
+        { id: 'import', label: 'Import', hint: 'Drop a .json file here', icon: <Upload size={16} />, accepts: ['import-card'], onDrop: () => importRef.current?.click(), onFiles: (files: File[]) => { const file = files.find((item: File) => /\.json$/i.test(item.name)) ?? files[0]; if (file) importFile(file) } },
         { id: 'sample', label: 'Load sample', hint: 'Restore sample data', icon: <Wand2 size={16} />, accepts: ['sample-pack'], onDrop: () => loadSamples() },
         { id: 'clear', label: 'Clear data', hint: 'Erase this browser', icon: <Trash2 size={16} />, accepts: ['workspace'], tone: 'danger', onDrop: () => clearData() },
       ]
@@ -745,6 +804,14 @@ function App() {
     document.body.classList.toggle('has-dock', hasDock)
     return () => document.body.classList.remove('has-dock')
   }, [hasDock])
+
+  function openSearchHit(hit: SearchHit) {
+    if (hit.page === 'actions' && hit.query) { setTaskQuery(hit.query); setTaskStatusFilter('all'); setTaskPriorityFilter('all') }
+    if (hit.page === 'ideas' && hit.query) { setIdeaQuery(hit.query); setIdeaStatusFilter('all') }
+    if (hit.page === 'feedback' && hit.query) setFeedbackQuery(hit.query)
+    if (hit.page === 'events' && hit.query) setEventQuery(hit.query)
+    setPage(hit.page as Page)
+  }
 
   function eventSelect(value: string, onChange: (eventId: string) => void, id: string, label: string) {
     const eventIds = new Set(workspace.events.map((event) => event.id))
@@ -765,7 +832,7 @@ function App() {
   }
 
   return (
-    <CanvasProvider onReject={(payload, zoneLabel) => announce(`“${payload.label}” can’t be dropped on ${zoneLabel}. Look for the glowing zones.`)}>
+    <CanvasProvider onReject={(payload: DragPayload, zoneLabel: string) => announce(`“${payload.label}” can’t be dropped on ${zoneLabel}. Look for the glowing zones.`)}>
     <div className="app-shell">
       {introOpen && <SylvaIntro onEnter={closeIntro} />}
       {!introOpen && <OrbitBackground />}
@@ -806,7 +873,6 @@ function App() {
         <div className="sidebar-foot">
           <p>Private by default.<br />Stored in this browser.</p>
           <button className="quiet-button" type="button" onClick={() => setIntroOpen(true)}><Sprout size={15} /> Replay welcome</button>
-          <button className="quiet-button" type="button" onClick={() => setPage('settings')}><CircleHelp size={15} /> Data & privacy</button>
         </div>
       </aside>
 
@@ -815,8 +881,8 @@ function App() {
           <button className="mobile-brand" type="button" aria-label="ORIGANO — replay the welcome animation" onClick={() => { setPage('overview'); setIntroOpen(true) }}><span className="brand-logo on-light" role="img" aria-label="ORIGANO logo" /> ORIGANO</button>
           <div className="breadcrumb"><span>ORIGANO</span><ChevronRight size={14} /><strong>{pageTitle()}</strong></div>
           <div className="topbar-right">
-            <span className="local-indicator"><i /> Saved in this browser</span>
-            <button className="icon-button" aria-label="Open data and settings" title="Data and settings" onClick={() => setPage('settings')} type="button"><Settings2 size={18} /></button>
+            <GlobalSearch workspace={workspace} pages={NAV_ITEMS} onSelect={openSearchHit} />
+            <button className="icon-button theme-toggle" type="button" role="switch" aria-checked={theme === 'dark'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'} onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
         <div className="mobile-nav menu-nav" onKeyDown={(event) => { if (event.key === 'Escape') setMenuOpen(false) }}>
@@ -1052,29 +1118,35 @@ function App() {
 
           {page === 'reflection' && (
             <section className="page-content">
-              <PageIntro eyebrow="MAKE THE EXPERIENCE USEFUL" title="A moment to reflect." detail="Answer the questions that matter to you. Partial reflections are welcome and drafts save locally." />
-              <div className="reflection-layout">
-                <div className="panel reflection-workspace">
-                  <div className="reflection-top"><span className="step-counter">QUESTION {reflectionQuestion + 1} / {REFLECTION_QUESTIONS.length}</span>{eventSelect(reflectionEventId, selectReflectionEvent, 'reflection-event', 'Event')}</div>
-                  <div className="question-progress" aria-label={`Question ${reflectionQuestion + 1} of ${REFLECTION_QUESTIONS.length}`}><span style={{ width: `${(reflectionQuestion + 1) / REFLECTION_QUESTIONS.length * 100}%` }} /></div>
-                  <label className="reflection-question" htmlFor="reflection-answer">{REFLECTION_QUESTIONS[reflectionQuestion]}</label>
-                  <textarea id="reflection-answer" className="reflection-answer" rows={8} value={reflectionDraft[REFLECTION_QUESTIONS[reflectionQuestion]] ?? ''} onChange={(event) => setReflectionDraft((answers) => ({ ...answers, [REFLECTION_QUESTIONS[reflectionQuestion]]: event.target.value }))} placeholder="Start with a few honest lines..." />
-                  {reflectionDraft[REFLECTION_QUESTIONS[reflectionQuestion]]?.trim() && <DataCard className="draft-card" payload={{ kind: 'takeaway', id: REFLECTION_QUESTIONS[reflectionQuestion], label: 'Takeaway' }}>
-                    <span className="draft-kicker">Takeaway card</span>
-                    <strong>{reflectionDraft[REFLECTION_QUESTIONS[reflectionQuestion]].trim().slice(0, 100)}</strong>
-                    <small>Drag into Add to plan to turn this answer into a task.</small>
-                  </DataCard>}
-                  <div className="reflection-controls">
-                    <button className="button button-secondary" type="button" disabled={reflectionQuestion === 0} onClick={() => setReflectionQuestion((index) => Math.max(0, index - 1))}><ChevronLeft size={16} /> Previous</button>
-                    <div><button className="button button-primary" type="button" onClick={() => setReflectionQuestion((index) => Math.min(REFLECTION_QUESTIONS.length - 1, index + 1))}>{reflectionQuestion === REFLECTION_QUESTIONS.length - 1 ? 'Review answers' : 'Next question'} <ChevronRight size={16} /></button></div>
-                  </div>
-                  <DataCard className="draft-card" payload={{ kind: 'draft-reflection', id: reflectionEventId || 'none', label: `Reflection · ${eventName(reflectionEventId)}` }} disabled={!reflectionEventId || !Object.values(reflectionDraft).some((answer) => answer.trim())} lockedReason="Choose an event and answer at least one question first">
-                    <span className="draft-kicker">Reflection draft</span>
-                    <strong>{eventName(reflectionEventId)}</strong>
-                    <small>{Object.values(reflectionDraft).filter((answer) => answer.trim()).length} of {REFLECTION_QUESTIONS.length} questions answered · drag into Save draft or Submit</small>
-                  </DataCard>
-                </div>
-                <aside className="panel reflection-guide"><p className="eyebrow">A SMALL PROMPT</p><h2>Write for your future self.</h2><p>You do not need perfect answers. Capture one detail you would otherwise forget, then decide what deserves a next step.</p><div className="guide-line" /><span>YOUR REFLECTION IS PRIVATE TO THIS BROWSER</span></aside>
+              <PageIntro eyebrow="MAKE THE EXPERIENCE USEFUL" title="A moment to reflect." detail="Answer any of the six questions in your own words. Partial answers are welcome." />
+              <ol className="how-steps">
+                <li><b>1</b><span><strong>Pick the event</strong>Choose the event you are reflecting on.</span></li>
+                <li><b>2</b><span><strong>Write a few lines</strong>Answer any question below. Skip the rest.</span></li>
+                <li><b>3</b><span><strong>Drag to finish</strong>Drag the Reflection card into <em>Save draft</em> or <em>Submit</em> in the zones at the bottom.</span></li>
+              </ol>
+              <div className="panel reflection-workspace">
+                {(() => {
+                  const answered = REFLECTION_QUESTIONS.filter((question) => reflectionDraft[question]?.trim()).length
+                  return <>
+                    <div className="reflection-top"><span className="step-counter">{answered} OF {REFLECTION_QUESTIONS.length} ANSWERED</span>{eventSelect(reflectionEventId, selectReflectionEvent, 'reflection-event', 'Event')}</div>
+                    <div className="question-progress" aria-hidden="true"><span style={{ width: `${answered / REFLECTION_QUESTIONS.length * 100}%` }} /></div>
+                    <div className="reflection-qlist">
+                      {REFLECTION_QUESTIONS.map((question, index) => {
+                        const answer = reflectionDraft[question] ?? ''
+                        return <DataCard key={question} className="reflection-q" payload={{ kind: 'takeaway', id: question, label: answer.trim().slice(0, 40) || 'Takeaway' }} disabled={!answer.trim()} lockedReason="Write an answer first to turn it into a task">
+                          <label htmlFor={`reflection-q-${index}`}><b>{index + 1}</b>{question}</label>
+                          <textarea id={`reflection-q-${index}`} rows={3} value={answer} placeholder="Start with a few honest lines…" onChange={(event) => setReflectionDraft((answers) => ({ ...answers, [question]: event.target.value }))} />
+                          <small className="muted">{answer.trim() ? 'Want to act on this? Drag this card into Add to plan to make it a task.' : 'Write something and this card can become a task.'}</small>
+                        </DataCard>
+                      })}
+                    </div>
+                    <DataCard className="draft-card" payload={{ kind: 'draft-reflection', id: reflectionEventId || 'none', label: `Reflection · ${eventName(reflectionEventId)}` }} disabled={!reflectionEventId || answered === 0} lockedReason="Choose an event and answer at least one question first">
+                      <span className="draft-kicker">Your reflection card</span>
+                      <strong>{reflectionEventId ? eventName(reflectionEventId) : 'Choose an event first'}</strong>
+                      <small>{answered === 0 ? 'Answer at least one question to unlock this card.' : `${answered} answer${answered === 1 ? '' : 's'} ready · drag into Save draft (keep editing later) or Submit (finish).`}</small>
+                    </DataCard>
+                  </>
+                })()}
               </div>
               <div className="panel saved-reflections">
                 <PanelTitle eyebrow={`${workspace.reflections.length} SAVED`} title="Saved reflections" />
@@ -1131,8 +1203,22 @@ function App() {
 
           {page === 'timeline' && (
             <section className="page-content">
-              <PageIntro eyebrow="A SUGGESTED RHYTHM, NOT A DEADLINE FOR SUCCESS" title="Keep the momentum." detail="A practical 24-hour, 7-day, and 30-day guide. Adjust dates to fit your life." />
-              <div className="timeline-summary"><div><span>COMPLETE</span><strong>{completedMilestones.length}<small> / {workspace.milestones.length}</small></strong></div><div className="timeline-summary-bar"><span style={{ width: `${timelineCompletion}%` }} /></div><span>{timelineCompletion}% of milestones marked done</span></div>
+              <PageIntro eyebrow="WHAT TO DO AFTER THE EVENT, AND WHEN" title="Keep the momentum." detail="A simple follow-up plan for the first 24 hours, 7 days and 30 days after an event." />
+              <ol className="how-steps">
+                <li><b>1</b><span><strong>Create the plan</strong>Drag the starter card into <em>Save</em> to get three milestones for your current event.</span></li>
+                <li><b>2</b><span><strong>Make it yours</strong>Edit any title or due date, or draft your own milestone below.</span></li>
+                <li><b>3</b><span><strong>Track it</strong>Drag a milestone into <em>Done</em> when finished, or <em>Add to plan</em> to turn it into a task.</span></li>
+              </ol>
+              {!workspace.events.length ? <div className="callout"><strong>First, create an event.</strong><span>The timeline is counted from the date of your event.</span><button className="button button-secondary compact" type="button" onClick={() => setPage('events')}>Go to Events</button></div>
+                : !workspace.milestones.some((item) => item.eventId === selectedEventId) && <div className="panel starter-panel">
+                  <PanelTitle eyebrow="START HERE" title={`No plan yet for “${eventName(selectedEventId)}”`} />
+                  <DataCard className="draft-card" payload={{ kind: 'starter-plan', id: 'starter', label: '30-day starter plan' }}>
+                    <span className="draft-kicker">Starter plan</span>
+                    <strong>3 milestones: 24 hours · 7 days · 30 days</strong>
+                    <small>Drag this card into the Save zone at the bottom of the screen.</small>
+                  </DataCard>
+                </div>}
+              <div className="timeline-summary"><div><span>COMPLETE</span><strong>{completedMilestones.length}<small> / {workspace.milestones.length}</small></strong></div><div className="timeline-summary-bar"><span style={{ width: `${timelineCompletion}%` }} /></div><span>{timelineCompletion}% of milestones done</span></div>
               <div className="timeline-board">
                 {(['24h', '7d', '30d'] as const).map((window) => <section className="timeline-lane" key={window}>
                   <div className="timeline-lane-heading"><span className="timeline-number">{window === '24h' ? '01' : window === '7d' ? '02' : '03'}</span><div><span className="eyebrow">{window === '24h' ? 'FIRST 24 HOURS' : window === '7d' ? 'FIRST 7 DAYS' : 'FIRST 30 DAYS'}</span><h2>{window === '24h' ? 'Capture' : window === '7d' ? 'Follow through' : 'Build forward'}</h2></div></div>
@@ -1143,11 +1229,24 @@ function App() {
                       <p>{milestone.description}</p>
                       <div className="milestone-footer"><label>Due <input type="date" value={milestone.dueDate} onChange={(event) => updateMilestone(milestone, { dueDate: event.target.value })} /></label>{isOverdue(milestone.dueDate, milestone.completedAt ? 'done' : 'todo') && <span className="overdue-label">Overdue</span>}</div>
                     </DataCard>)}
-                    {!workspace.milestones.some((item) => item.window === window) && <p className="lane-empty">Nothing planned for this window yet.</p>}
+                    {!workspace.milestones.some((item) => item.window === window) && <p className="lane-empty">No milestones in this window yet.</p>}
                   </div>
                 </section>)}
               </div>
-              <div className="panel custom-milestones"><PanelTitle eyebrow="YOUR OWN PACE" title="Milestones from your action plan" /><p className="muted">Milestones can be edited directly above. Drag a milestone into Done, Reopen or Add to plan to update it.</p><div className="plain-activity">{workspace.milestones.filter((item) => item.completedAt).map((item) => <span key={item.id}><CheckCircle2 size={15} /> {item.title} · completed {formatDate(item.completedAt?.slice(0, 10) ?? '')}</span>)}</div></div>
+              <div className="panel custom-milestones">
+                <PanelTitle eyebrow="OPTIONAL" title="Add your own milestone" />
+                <div className="form-grid">
+                  <Field label="Title" id="milestone-title"><input id="milestone-title" value={milestoneForm.title} placeholder="e.g. Send thank-you notes to mentors" onChange={(event) => setMilestoneForm({ ...milestoneForm, title: event.target.value })} /></Field>
+                  <Field label="When" id="milestone-window"><select id="milestone-window" value={milestoneForm.window} onChange={(event) => setMilestoneForm({ ...milestoneForm, window: event.target.value as TimelineMilestone['window'] })}><option value="24h">First 24 hours</option><option value="7d">First 7 days</option><option value="30d">First 30 days</option></select></Field>
+                  <Field label="Due date (optional)" id="milestone-due"><input id="milestone-due" type="date" value={milestoneForm.dueDate} onChange={(event) => setMilestoneForm({ ...milestoneForm, dueDate: event.target.value })} /></Field>
+                  <Field label="Details (optional)" id="milestone-desc"><input id="milestone-desc" value={milestoneForm.description} onChange={(event) => setMilestoneForm({ ...milestoneForm, description: event.target.value })} /></Field>
+                </div>
+                <DataCard className="draft-card" payload={{ kind: 'draft-milestone', id: 'new', label: milestoneForm.title.trim() || 'Milestone' }} disabled={!milestoneForm.title.trim()} lockedReason="Give the milestone a title first">
+                  <span className="draft-kicker">New milestone · {milestoneForm.window}</span>
+                  <strong>{milestoneForm.title.trim() || 'Untitled milestone'}</strong>
+                  <small>{milestoneForm.title.trim() ? 'Drag into the Save zone to add it.' : 'Type a title to turn this into a card.'}</small>
+                </DataCard>
+              </div>
             </section>
           )}
 
