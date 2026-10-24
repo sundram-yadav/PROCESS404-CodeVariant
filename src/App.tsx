@@ -9,7 +9,7 @@ import {
 import './App.css'
 import './theme.css'
 import './neo.css'
-import './canvas-protocol.css'
+import './Canvas-protocol.css'
 import { ActionDock, CanvasProvider, DataCard, type DragPayload, type ZoneDef } from './components/Canvas'
 import OrbitBackground from './components/OrbitBackground'
 import CommitteeScene from './components/CommitteeScene'
